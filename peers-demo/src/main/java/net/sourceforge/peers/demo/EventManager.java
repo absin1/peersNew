@@ -26,7 +26,7 @@ public class EventManager implements SipListener {
 		Config config = new CustomConfig();
 		Logger logger = new FileLogger(null);
 		/*-JavaxSoundManager javaxSoundManager = new JavaxSoundManager(false, logger, null);*/
-		AbstractSoundManager javaxSoundManager = new StreamSoundManager();
+		AbstractSoundManager javaxSoundManager = new StreamSoundManager(false, logger, null);
 		userAgent = new UserAgent(this, config, logger, javaxSoundManager);
 		new Thread() {
 			public void run() {

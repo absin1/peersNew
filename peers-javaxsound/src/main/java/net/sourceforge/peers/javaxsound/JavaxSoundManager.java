@@ -20,6 +20,7 @@
 package net.sourceforge.peers.javaxsound;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -40,7 +41,9 @@ import net.sourceforge.peers.media.AbstractSoundManager;
 import net.sourceforge.peers.sip.Utils;
 
 public class JavaxSoundManager extends AbstractSoundManager {
+	  public final static int BUFFER_SIZE = 256;
 
+	    private FileInputStream fileInputStream;
     private AudioFormat audioFormat;
     private TargetDataLine targetDataLine;
     private SourceDataLine sourceDataLine;
@@ -54,7 +57,13 @@ public class JavaxSoundManager extends AbstractSoundManager {
     private String peersHome;
     
     public JavaxSoundManager(boolean mediaDebug, Logger logger, String peersHome) {
-        this.mediaDebug = mediaDebug;
+    	 try {
+			fileInputStream = new FileInputStream("/home/absin/Downloads/output1.wav");
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	 this.mediaDebug = mediaDebug;
         this.logger = logger;
         this.peersHome = peersHome;
         if (peersHome == null) {
@@ -172,7 +181,7 @@ public class JavaxSoundManager extends AbstractSoundManager {
 
     @Override
     public synchronized byte[] readData() {
-        if (targetDataLine == null) {
+        /*if (targetDataLine == null) {
             return null;
         }
         int ready = targetDataLine.available();
@@ -197,7 +206,25 @@ public class JavaxSoundManager extends AbstractSoundManager {
                 return null;
             }
         }
-        return buffer;
+        return buffer;*/
+    	if (fileInputStream == null) {
+            return null;
+        }
+        byte buffer[] = new byte[BUFFER_SIZE];
+        try {
+            if (fileInputStream.read(buffer) >= 0) {
+                Thread.sleep(15);
+                return buffer;
+            } else {
+                fileInputStream.close();
+                fileInputStream = null;
+            }
+        } catch (IOException e) {
+            logger.error("io exception", e);
+        } catch (InterruptedException e) {
+            logger.debug("file reader interrupted");
+        }
+        return null;
     }
 
     @Override

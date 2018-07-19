@@ -35,7 +35,7 @@ public class CustomConfig implements Config {
 
 	@Override
 	public String getUserPart() {
-		return "9999";
+		return "alice";
 	}
 
 	@Override
@@ -80,7 +80,7 @@ public class CustomConfig implements Config {
 
 	@Override
 	public String getMediaFile() {
-		return "C:\\Users\\absin\\Downloads\\output1.wav";
+		return "/home/absin/Downloads/output1.wav";
 	}
 
 	@Override
