@@ -49,6 +49,10 @@
 			<artifactId>google-cloud-speech</artifactId>
 			<version>0.54.0-beta</version>
 		</dependency>
-
+		<dependency>
+			<groupId>talentify</groupId>
+			<artifactId>ai</artifactId>
+			<version>0.0.1</version>
+		</dependency>
 	</dependencies>
 </project>

@@ -83,6 +83,7 @@ public class EventManager implements SipListener {
 		String callId = Utils.getMessageCallId(sipRequest);
 		DialogManager dialogManager = userAgent.getDialogManager();
 		Dialog dialog = dialogManager.getDialog(callId);
+		userAgent.getSoundManager().init();
 		userAgent.acceptCall(sipRequest, dialog);
 		System.err.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!CALL ACCEPTED");
 	}

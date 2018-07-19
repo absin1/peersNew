@@ -44,6 +44,9 @@ import javax.sound.sampled.TargetDataLine;
 import net.sourceforge.peers.Logger;
 import net.sourceforge.peers.media.AbstractSoundManager;
 import net.sourceforge.peers.sip.Utils;
+import talentify.ai.mitsuku.BotSingleton;
+import talentify.ai.mitsuku.Chat;
+
 import org.apache.commons.io.IOUtils;
 
 import com.google.cloud.texttospeech.v1.AudioConfig;
@@ -63,7 +66,8 @@ import com.google.cloud.speech.v1p1beta1.SpeechRecognitionResult;
 public class StreamSoundManager extends AbstractSoundManager {
 	public final static int BUFFER_SIZE = 256;
 
-    private FileInputStream fileInputStream;
+	private Chat chatSession = BotSingleton.getInstance().getChatS();
+	private FileInputStream fileInputStream;
 	private ByteArrayInputStream bis ;
     private AudioFormat audioFormat;
 	private TargetDataLine targetDataLine;
@@ -80,11 +84,12 @@ public class StreamSoundManager extends AbstractSoundManager {
 	private int counter = 0;
 	private TextToSpeechClient textToSpeechClient;
 	private SpeechClient speechClient;
-	private boolean isSpeakingRequired = true;
+	private boolean isSpeakingRequired = false;
+	private boolean isSpeechReady =false;
 	private int accumulationCounter = 0;
 	private int maxAccumulation = 200;
 	private ByteArrayOutputStream accumulatedStream  = new ByteArrayOutputStream();
-	private String text1 = "Hello WORLD HOW ARE YOU DOING TODAY. THIS IS CHAMPA KA BALAATKAAR";
+	private String text1 = "Hello WORLD HOW ARE YOU DOING TODAY. THIS IS an automated bot called Zoya at your service";
 	private String text;
 public StreamSoundManager(boolean mediaDebug, Logger logger, String peersHome) {
 	try {
@@ -99,20 +104,21 @@ public StreamSoundManager(boolean mediaDebug, Logger logger, String peersHome) {
 		// TODO Auto-generated catch block
 		e.printStackTrace();
 	}
-	getGoogleSpeech();
+	getGoogleSpeech(text1);
 	
 	
-	try {
+	/*try {
 		fileInputStream = new FileInputStream("/home/absin/Downloads/output1.wav");
-		/*byteArray = IOUtils.toByteArray(fileInputStream);
-		bis = new ByteArrayInputStream(byteArray);*/
+		byteArray = IOUtils.toByteArray(fileInputStream);
+		bis = new ByteArrayInputStream(byteArray);
 	 } catch (FileNotFoundException e) {
 		// TODO Auto-generated catch block
 		e.printStackTrace();
 	} catch (IOException e) {
 		// TODO Auto-generated catch block
 		e.printStackTrace();
-	}
+	}*/
+	
 	this.mediaDebug = mediaDebug;
     this.logger = logger;
     this.peersHome = peersHome;
@@ -126,13 +132,15 @@ public StreamSoundManager(boolean mediaDebug, Logger logger, String peersHome) {
     sourceDataLineMutex = new Object();
 }
 
-private void getGoogleSpeech() {
+private void getGoogleSpeech(String textss) {
+	if(textss != null)
+		text =textss;
 	System.err.println("STARRRRTTTTEDDDDDD");
  
-	SynthesisInput input = SynthesisInput.newBuilder().setText(text1).build();
+	SynthesisInput input = SynthesisInput.newBuilder().setText(text).build();
 
 	// Build the voice request
-	VoiceSelectionParams voice = VoiceSelectionParams.newBuilder().setLanguageCode("en-IN").build();
+	VoiceSelectionParams voice = VoiceSelectionParams.newBuilder().setLanguageCode("en-IN").setSsmlGenderValue(2).build();
 
 	// Select the type of audio file you want returned
 	AudioConfig audioConfig = AudioConfig.newBuilder().setAudioEncoding(AudioEncoding.LINEAR16).setSampleRateHertz(8000) // MP3 audio.
@@ -149,12 +157,14 @@ private void getGoogleSpeech() {
 	
 
 	bis = new ByteArrayInputStream(byteArray);
+	isSpeechReady = true;
 	System.err.println("DDDDOOOOOONNNNNEEEEEEEEEEEEEEE");
 }
 
 @Override
 public void init() {
-    logger.debug("openAndStartLines");
+	getGoogleSpeech(text1);
+	logger.debug("openAndStartLines");
     if (mediaDebug) {
         SimpleDateFormat simpleDateFormat =
             new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
@@ -304,125 +314,110 @@ public synchronized byte[] readData() {
 	} catch (IOException | InterruptedException e) {
 		e.printStackTrace();
 	}
-	return null;*/
-	
-	//System.err.println("isSpeakingRequired>>"+isSpeakingRequired);
-	/*if(isSpeakingRequired) {
-		getGoogleSpeech();
-		if(bis.available()>BUFFER_SIZE) {
-			byte buffer[] = new byte[BUFFER_SIZE];
-			
-			try {
-				if (bis.read(buffer) >= 0) {
-					Thread.sleep(15);
-					return buffer;
-				} else {
-					bis.close();
-					bis = null;
-					isSpeakingRequired = false;
-				}
-			} catch (IOException | InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		return null;
-	} else
-		return null;*/
-	
-	if (bis == null) {
-        return null;
-    }
-	
-	byte buffer[] = new byte[BUFFER_SIZE];
-	
-	try {
-		if (bis.read(buffer) >= 0) {
-			Thread.sleep(15);
-			return buffer;
-		} else {
-			bis.close();
-			bis = null;
-			isSpeakingRequired = false;
-		}
-	} catch (IOException | InterruptedException e) {
-		e.printStackTrace();
-	}
 	return null;
-	
-	/*int length = 256;
-	byte[] buffer = new byte[length];
-	int j = 0;
-	while (counter < byteArray.length && j < length) {
-		buffer[j++] = byteArray[counter++];
-	}
-	System.out.println("Counter>>" + counter);
-	return buffer;*/
-	
-	
-}
+		 */
 
-@Override
-public int writeData(byte[] buffer, int offset, int length) {
-    /*int numberOfBytesWritten;
-    synchronized (sourceDataLineMutex) {
-        if (sourceDataLine == null) {
-            return 0;
-        }
-        numberOfBytesWritten = sourceDataLine.write(buffer, offset, length);
-    }
-    if (mediaDebug) {
-        try {
-            speakerInput.write(buffer, offset, numberOfBytesWritten);
-        } catch (IOException e) {
-            logger.error("cannot write to file", e);
-            return -1;
-        }
-    }
-    return numberOfBytesWritten;*/
-	if(++accumulationCounter<maxAccumulation) {
+		// System.err.println("isSpeakingRequired>>"+isSpeakingRequired);
+		byte buffer[] = new byte[BUFFER_SIZE];
+		if (bis == null) {
+			return buffer;
+		}
+
 		try {
-			//System.err.println(accumulationCounter+">>>>>>");
-			accumulatedStream.write(buffer);
-		} catch (IOException e) {
+			if (bis.read(buffer) >= 0) {
+				Thread.sleep(15);
+				return buffer;
+			} else {
+				bis.close();
+				bis = null;
+				isSpeechReady = false;
+				return buffer;
+			}
+		} catch (IOException | InterruptedException e) {
 			e.printStackTrace();
 		}
-	} else {
-		//System.err.println(">>>Inititaling speech to text>>");  
-		initiateGoogleSpeechToText();
+		return buffer;
+
+		/*
+		 * if (bis == null) { return null; }
+		 * 
+		 * byte buffer[] = new byte[BUFFER_SIZE];
+		 * 
+		 * try { if (bis.read(buffer) >= 0) { Thread.sleep(15); return buffer; } else {
+		 * bis.close(); bis = null; isSpeakingRequired = false; } } catch (IOException |
+		 * InterruptedException e) { e.printStackTrace(); } return null;
+		 */
+
+		/*
+		 * int length = 256; byte[] buffer = new byte[length]; int j = 0; while (counter
+		 * < byteArray.length && j < length) { buffer[j++] = byteArray[counter++]; }
+		 * System.out.println("Counter>>" + counter); return buffer;
+		 */
+
 	}
-    int length2 = buffer.length;
-	return length2;
-}
 
-private void initiateGoogleSpeechToText() {
-	//System.err.println("Starting speech to text >>>>>>"+accumulatedStream.size());
-	ByteString audioBytes = ByteString.copyFrom(accumulatedStream.toByteArray());
-	RecognitionConfig config = RecognitionConfig.newBuilder()
-          .setEncoding(com.google.cloud.speech.v1p1beta1.RecognitionConfig.AudioEncoding.LINEAR16)
-          .setSampleRateHertz(8000)
-          .setLanguageCode("en-IN")
-          .build();
-      RecognitionAudio audio = RecognitionAudio.newBuilder()
-          .setContent(audioBytes)
-          .build();
+	@Override
+	public int writeData(byte[] buffer, int offset, int length) {
+		/*
+		 * int numberOfBytesWritten; synchronized (sourceDataLineMutex) { if
+		 * (sourceDataLine == null) { return 0; } numberOfBytesWritten =
+		 * sourceDataLine.write(buffer, offset, length); } if (mediaDebug) { try {
+		 * speakerInput.write(buffer, offset, numberOfBytesWritten); } catch
+		 * (IOException e) { logger.error("cannot write to file", e); return -1; } }
+		 * return numberOfBytesWritten;
+		 */
+		if (++accumulationCounter < maxAccumulation) {
+			try {
+				// System.err.println(accumulationCounter+">>>>>>");
+				accumulatedStream.write(buffer);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		} else {
+			// System.err.println(">>>Inititaling speech to text>>");
+			initiateGoogleSpeechToText();
+		}
+		int length2 = buffer.length;
+		return length2;
+	}
 
-      // Performs speech recognition on the audio file
-      RecognizeResponse response = speechClient.recognize(config, audio);
-      List<SpeechRecognitionResult> results = response.getResultsList();
+	private void initiateGoogleSpeechToText() {
+		 System.err.println("Starting speech to text  >>>>>>"+accumulatedStream.size());
+		ByteString audioBytes = ByteString.copyFrom(accumulatedStream.toByteArray());
+		RecognitionConfig config = RecognitionConfig.newBuilder()
+				.setEncoding(com.google.cloud.speech.v1p1beta1.RecognitionConfig.AudioEncoding.LINEAR16)
+				.setSampleRateHertz(8000).setLanguageCode("en-IN").build();
+		RecognitionAudio audio = RecognitionAudio.newBuilder().setContent(audioBytes).build();
 
-      for (SpeechRecognitionResult result : results) {
-        // There can be several alternative transcripts for a given chunk of speech. Just use the
-        // first (most likely) one here.
-        SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
-        System.err.printf("Transcription: %s%n", alternative.getTranscript());
-        text = alternative.getTranscript();
-        isSpeakingRequired = true;
-      	
-      }
-      accumulationCounter = 0;
-      accumulatedStream.reset();  
-  	//System.err.println("Finished speech to text >>>>>>");
+		// Performs speech recognition on the audio file
+		RecognizeResponse response = speechClient.recognize(config, audio);
+		List<SpeechRecognitionResult> results = response.getResultsList();
 
-}
+		for (SpeechRecognitionResult result : results) {
+			// There can be several alternative transcripts for a given chunk of speech.
+			// Just use the
+			// first (most likely) one here.
+			SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
+			System.err.printf("Transcription: %s%n", alternative.getTranscript());
+			text = alternative.getTranscript();
+			text = getMitsukuResponse(text);
+			getGoogleSpeech(null);
 
+		}
+		accumulationCounter = 0;
+		accumulatedStream.reset();
+		// System.err.println("Finished speech to text >>>>>>");
+
+	}
+	private String getMitsukuResponse(String query) {
+		if (talentify.ai.mitsuku.MagicBooleans.trace_mode)
+			System.out.println("STATE=" + query + ":THAT=" + chatSession.thatHistory.get(0).get(0) + ":TOPIC="
+					+ chatSession.predicates.get("topic"));
+		String speech = chatSession.multisentenceRespond(query);
+		while (speech.contains("&lt;"))
+			speech = speech.replace("&lt;", "<");
+		while (speech.contains("&gt;"))
+			speech = speech.replace("&gt;", ">");
+		return speech;
+	}
 }
