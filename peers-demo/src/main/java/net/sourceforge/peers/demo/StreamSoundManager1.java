@@ -2,6 +2,9 @@ package net.sourceforge.peers.demo;
 
 import com.google.api.gax.rpc.ApiStreamObserver;
 import com.google.api.gax.rpc.BidiStreamingCallable;
+import com.google.api.gax.rpc.ClientStream;
+import com.google.api.gax.rpc.ResponseObserver;
+import com.google.api.gax.rpc.StreamController;
 import com.google.cloud.speech.v1p1beta1.LongRunningRecognizeMetadata;
 import com.google.cloud.speech.v1p1beta1.LongRunningRecognizeResponse;
 import com.google.cloud.speech.v1p1beta1.RecognitionAudio;
@@ -50,6 +53,7 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -102,7 +106,7 @@ import com.google.cloud.speech.v1p1beta1.SpeechClient;
 import com.google.cloud.speech.v1p1beta1.SpeechRecognitionAlternative;
 import com.google.cloud.speech.v1p1beta1.SpeechRecognitionResult;
 
-public class StreamSoundManager extends AbstractSoundManager {
+public class StreamSoundManager1 extends AbstractSoundManager {
 	public final static int BUFFER_SIZE = 256;
 
 	private Chat chatSession = BotSingleton.getInstance().getChatS();
@@ -132,15 +136,15 @@ public class StreamSoundManager extends AbstractSoundManager {
 									 * "Hello WORLD HOW ARE YOU DOING TODAY. THIS IS an automated bot called Zoya at your service"
 									 */;
 	private String text;
-	private RecognitionConfig config;
 	private RecognitionConfig recConfig;
 	private StreamingRecognitionConfig streamConfig;
-	ResponseApiStreamingObserver<StreamingRecognizeResponse> responseObserver;
-	BidiStreamingCallable<StreamingRecognizeRequest, StreamingRecognizeResponse> callable;
-	ApiStreamObserver<StreamingRecognizeRequest> requestObserver;
-	Boolean responseIdentificationStarted = false;
+	private ResponseObserver<StreamingRecognizeResponse> responseObserver;
+	private Boolean responseIdentificationStarted = false;
+	private StreamingRecognizeRequest streamingRecognizeRequest;
+	private ClientStream<StreamingRecognizeRequest> clientStream;
+	private Boolean isPrimed = true;
 
-	public StreamSoundManager(boolean mediaDebug, Logger logger, String peersHome) {
+	public StreamSoundManager1(boolean mediaDebug, Logger logger, String peersHome) {
 		try {
 			textToSpeechClient = TextToSpeechClient.create();
 		} catch (IOException e) {
@@ -149,14 +153,11 @@ public class StreamSoundManager extends AbstractSoundManager {
 		}
 		try {
 			speechClient = SpeechClient.create();
-			config = RecognitionConfig.newBuilder()
-					.setEncoding(com.google.cloud.speech.v1p1beta1.RecognitionConfig.AudioEncoding.LINEAR16)
-					.setSampleRateHertz(8000).setLanguageCode("en-IN").build();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		getGoogleSpeech(text1);
+		// getGoogleSpeech(text1);
 		prepareIntentUtteranceDataFromDialogflowDump();
 		try {
 			experience = getSampleExperience();
@@ -164,23 +165,6 @@ public class StreamSoundManager extends AbstractSoundManager {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-
-		// init the streaming config and related stuff
-
-		// Configure request with local raw PCM audio
-		recConfig = RecognitionConfig.newBuilder()
-				.setEncoding(com.google.cloud.speech.v1p1beta1.RecognitionConfig.AudioEncoding.LINEAR16)
-				.setLanguageCode("en-IN").setSampleRateHertz(8000).setModel("default").build();
-		streamConfig = StreamingRecognitionConfig.newBuilder().setConfig(recConfig).build();
-
-		/*
-		 * try { fileInputStream = new
-		 * FileInputStream("/home/absin/Downloads/output1.wav"); byteArray =
-		 * IOUtils.toByteArray(fileInputStream); bis = new
-		 * ByteArrayInputStream(byteArray); } catch (FileNotFoundException e) { // TODO
-		 * Auto-generated catch block e.printStackTrace(); } catch (IOException e) { //
-		 * TODO Auto-generated catch block e.printStackTrace(); }
-		 */
 
 		this.mediaDebug = mediaDebug;
 		this.logger = logger;
@@ -227,12 +211,78 @@ public class StreamSoundManager extends AbstractSoundManager {
 
 	@Override
 	public void init() {
-		callable = speechClient.streamingRecognizeCallable();
-		responseObserver = new ResponseApiStreamingObserver<>();
-		requestObserver = callable.bidiStreamingCall(responseObserver);
+		getGoogleSpeech(text1);
+
+		responseObserver = new ResponseObserver<StreamingRecognizeResponse>() {
+
+			public void onStart(StreamController controller) {
+				// do nothing
+				System.err.println("\n\n\nStarted \n\n" + System.currentTimeMillis());
+			}
+
+			public void onResponse(StreamingRecognizeResponse response) {
+				System.err.println("REAL Time Response >>" + response);
+			}
+
+			public void onComplete() {
+				System.err.println("\n\n\nCompleted\n\n");
+			}
+
+			public void onError(Throwable t) {
+				System.err.println(t);
+			}
+		};
+		clientStream = speechClient.streamingRecognizeCallable().splitCall(responseObserver);
+		recConfig = RecognitionConfig.newBuilder()
+
+				.setLanguageCode("en-IN").setSampleRateHertz(8000).build();
+
+		streamConfig = StreamingRecognitionConfig.newBuilder().setConfig(recConfig).build();
+		ResponseApiStreamingObserver<StreamingRecognizeResponse> responseObserver = new ResponseApiStreamingObserver<>();
+
+		BidiStreamingCallable<StreamingRecognizeRequest, StreamingRecognizeResponse> callable = speechClient
+				.streamingRecognizeCallable();
+
+		ApiStreamObserver<StreamingRecognizeRequest> requestObserver = callable.bidiStreamingCall(responseObserver);
+
 		// The first request must **only** contain the audio configuration:
 		requestObserver.onNext(StreamingRecognizeRequest.newBuilder().setStreamingConfig(streamConfig).build());
-		getGoogleSpeech(text1);
+
+		// Subsequent requests must **only** contain the audio data.
+		try {
+			requestObserver.onNext(StreamingRecognizeRequest.newBuilder()
+					.setAudioContent(ByteString.copyFrom(
+							IOUtils.toByteArray(new FileInputStream(new File("/home/absin/Downloads/output1.wav")))))
+					.build());
+
+			// Mark transmission as completed after sending the data.
+			requestObserver.onCompleted();
+
+			List<StreamingRecognizeResponse> responses = responseObserver.future().get();
+
+			for (StreamingRecognizeResponse response : responses) {
+				// For streaming recognize, the results list has one is_final result (if
+				// available) followed
+				// by a number of in-progress results (if iterim_results is true) for subsequent
+				// utterances.
+				// Just print the first result here.
+				StreamingRecognitionResult result = response.getResultsList().get(0);
+				// There can be several alternative transcripts for a given chunk of speech.
+				// Just use the
+				// first (most likely) one here.
+				SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
+				System.out.printf("Transcript : %s\n", alternative.getTranscript());
+			}
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		logger.debug("openAndStartLines");
 		if (mediaDebug) {
 			SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
@@ -285,6 +335,7 @@ public class StreamSoundManager extends AbstractSoundManager {
 				}
 				return null;
 			}
+
 		});
 
 	}
@@ -355,55 +406,14 @@ public class StreamSoundManager extends AbstractSoundManager {
 
 	@Override
 	public int writeData(byte[] buffer, int offset, int length) {
-		try {
-			streamingRecognizeFile(buffer);
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		if (++accumulationCounter > maxAccumulation) {
-			// Mark transmission as completed after sending the data.
-			requestObserver.onCompleted();
-			accumulationCounter = 0;
-			responseObserver = new ResponseApiStreamingObserver<>();
-			requestObserver = callable.bidiStreamingCall(responseObserver);
-			// The first request must **only** contain the audio configuration:
-			requestObserver.onNext(StreamingRecognizeRequest.newBuilder().setStreamingConfig(streamConfig).build());
-			
-		}
+
+		// System.err.println(Arrays.toString(buffer));
+
+		/*-streamingRecognizeRequest = StreamingRecognizeRequest.newBuilder().setAudioContent(ByteString.copyFrom(buffer))
+				.build();
+		clientStream.send(streamingRecognizeRequest);
+		*/
 		return buffer.length;
-	}
-
-	private void initiateGoogleSpeechToText() {
-		System.err.println("Starting speech to text  >>>>>>" + accumulatedStream.size());
-		ByteString audioBytes = ByteString.copyFrom(accumulatedStream.toByteArray());
-
-		RecognitionAudio audio = RecognitionAudio.newBuilder().setContent(audioBytes).build();
-
-		// Performs speech recognition on the audio file
-		RecognizeResponse response = speechClient.recognize(config, audio);
-		List<SpeechRecognitionResult> results = response.getResultsList();
-
-		for (SpeechRecognitionResult result : results) {
-			// There can be several alternative transcripts for a given chunk of speech.
-			// Just use the
-			// first (most likely) one here.
-			SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
-			// System.err.printf("Transcription: %s%n", alternative.getTranscript());
-			text = alternative.getTranscript();
-			System.err.println("Identified Query >> " + text);
-			text = getSpeech(text);
-			System.err.println("Chosen Response >> " + text);
-			getGoogleSpeech(null);
-			accumulatedStream.reset();
-			accumulationCounter = 0;
-		}
-		if (accumulationCounter > 250) {
-			accumulatedStream.reset();
-			accumulationCounter = 0;
-		}
-		// System.err.println("Finished speech to text >>>>>>");
-
 	}
 
 	private String[] resetSpeech = new String[] { "hmmm", "sorry", "can you repeat yourself" };
@@ -565,52 +575,4 @@ public class StreamSoundManager extends AbstractSoundManager {
 		return experience;
 	}
 
-	/**
-	 * Performs streaming speech recognition on raw PCM audio data.
-	 *
-	 * @param fileName
-	 *            the path to a PCM audio file to transcribe.
-	 */
-	public void streamingRecognizeFile(byte[] data) throws Exception, IOException {
-		// Subsequent requests must **only** contain the audio data.
-		requestObserver
-				.onNext(StreamingRecognizeRequest.newBuilder().setAudioContent(ByteString.copyFrom(data)).build());
-		if (!responseIdentificationStarted) {
-			Runnable myRunnable = new Runnable() {
-				public void run() {
-					System.err.println(data.length + ">\n\n\nSTAAAARTEEED>\n\n\n" + Thread.currentThread().getName());
-					// Mark transmission as completed after sending the data.
-					// requestObserver.onCompleted();
-					List<StreamingRecognizeResponse> responses;
-					try {
-						responses = responseObserver.future().get();
-						for (StreamingRecognizeResponse response : responses) {
-							// For streaming recognize, the results list has one is_final result (if
-							// available) followed
-							// by a number of in-progress results (if iterim_results is true) for subsequent
-							// utterances.
-							// Just print the first result here.
-							StreamingRecognitionResult result = response.getResultsList().get(0);
-							// There can be several alternative transcripts for a given chunk of speech.
-							// Just use the
-							// first (most likely) one here.
-							SpeechRecognitionAlternative alternative = result.getAlternativesList().get(0);
-							System.err.printf("Transcript : %s\n", alternative.getTranscript());
-						}
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (ExecutionException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					System.err.println(data.length + ">\n\n\nFINISHED>\n\n\n" + Thread.currentThread().getName());
-				}
-			};
-			Thread thread = new Thread(myRunnable);
-			thread.start();
-			System.err.println(data.length + ">RESPONSEIDENTIFICATIONSTARTED>" + Thread.currentThread().getName());
-			responseIdentificationStarted = true;
-		}
-	}
 }
