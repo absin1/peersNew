@@ -1,7 +1,6 @@
 package net.sourceforge.peers.demo;
 
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 
 /*
 This file is part of Peers, a java SIP softphone.
@@ -23,14 +22,12 @@ Copyright 2010, 2011, 2012 Yohann Martineau
 */
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
 
 import javax.sound.sampled.AudioFormat;
@@ -49,14 +46,11 @@ import com.google.cloud.speech.v1p1beta1.StreamingRecognitionConfig;
 import com.google.cloud.speech.v1p1beta1.StreamingRecognizeRequest;
 import com.google.cloud.speech.v1p1beta1.StreamingRecognizeRequest.Builder;
 import com.google.cloud.speech.v1p1beta1.StreamingRecognizeResponse;
-import com.google.cloud.texttospeech.v1.TextToSpeechClient;
 import com.google.protobuf.ByteString;
 
 import net.sourceforge.peers.Logger;
 import net.sourceforge.peers.media.AbstractSoundManager;
 import net.sourceforge.peers.sip.Utils;
-import talentify.ai.mitsuku.BotSingleton;
-import talentify.ai.mitsuku.Chat;
 
 public class StreamSoundManager1 extends AbstractSoundManager {
 	public final static int BUFFER_SIZE = 256;
