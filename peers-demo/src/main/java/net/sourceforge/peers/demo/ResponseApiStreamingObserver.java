@@ -12,6 +12,7 @@ public class ResponseApiStreamingObserver<T> implements ApiStreamObserver<T> {
 
 	@Override
 	public void onNext(T message) {
+		//System.err.println(message.toString());
 		messages.add(message);
 	}
 
