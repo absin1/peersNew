@@ -1,7 +1,5 @@
 package net.sourceforge.peers.demo;
 
-import java.io.ByteArrayInputStream;
-
 /*
 This file is part of Peers, a java SIP softphone.
 
@@ -28,6 +26,7 @@ import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 
 import javax.sound.sampled.AudioFormat;
@@ -55,7 +54,6 @@ import net.sourceforge.peers.sip.Utils;
 public class StreamSoundManager1 extends AbstractSoundManager {
 	public final static int BUFFER_SIZE = 256;
 
-	private ByteArrayInputStream bis;
 	private AudioFormat audioFormat;
 	private TargetDataLine targetDataLine;
 	private SourceDataLine sourceDataLine;
@@ -106,16 +104,14 @@ public class StreamSoundManager1 extends AbstractSoundManager {
 			}
 
 			public void onResponse(StreamingRecognizeResponse response) {
-
-				System.err.println("Received first real-time Response >>" + response + "\n after: "
-						+ (System.currentTimeMillis() - currentTimeMillis));
+				System.out.println(response);
 			}
 
 			public void onComplete() {
 			}
 
 			public void onError(Throwable t) {
-				System.err.println(t);
+				System.out.println(t);
 			}
 		};
 		clientStream = speechClient.streamingRecognizeCallable().splitCall(responseObserver);
@@ -124,7 +120,7 @@ public class StreamSoundManager1 extends AbstractSoundManager {
 				.setLanguageCode("en-IN").setSampleRateHertz(8000).build();
 		streamConfig = StreamingRecognitionConfig.newBuilder().setConfig(recConfig).build();
 		newBuilder = StreamingRecognizeRequest.newBuilder();
-		streamingRecognizeRequest = newBuilder.setStreamingConfig(streamConfig).build();
+		streamingRecognizeRequest = newBuilder.setStreamingConfig(streamConfig).build(); // The first request in a streaming call has to be a config
 		clientStream.send(streamingRecognizeRequest);
 
 		logger.debug("openAndStartLines");
@@ -232,8 +228,7 @@ public class StreamSoundManager1 extends AbstractSoundManager {
 
 	@Override
 	public int writeData(byte[] buffer, int offset, int length) {
-		// System.err.println(Arrays.toString(buffer));
-		if (counter == 0)
+		if (counter++ == 0)
 			currentTimeMillis = System.currentTimeMillis();
 		// System.err.println("Started sending to google: " + currentTimeMillis);
 		streamingRecognizeRequest = newBuilder.setAudioContent(ByteString.copyFrom(buffer)).build();
